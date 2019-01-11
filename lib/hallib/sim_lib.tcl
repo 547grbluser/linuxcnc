@@ -60,7 +60,8 @@ proc check_ini_items {} {
   }
 
   set kins [split [lindex $::KINS(KINEMATICS) 0]]
-  if {[string first trivkins $kins] >= 0} {
+  if {   ([string first trivkins     $kins] >= 0)
+      && ([string first trivkinsplus $kins] <  0) } {
     foreach item $kins {
       if {[string first coordinates= $item] < 0} continue
         set     tcoords [lindex [split $item =] end]
@@ -94,8 +95,8 @@ proc setup_kins {axes} {
   }
 
   # set up axis indices for known kins
-  switch $kins_module {
-    trivkins   {indices_for_trivkins $axes}
+  switch -glob $kins_module {
+    trivkins* {indices_for_trivkins $axes}
     default    {
       puts stderr "setup_kins: unknown \[KINS\]KINEMATICS=<$::KINS(KINEMATICS)>"
     }
@@ -115,10 +116,17 @@ proc core_sim {axes
   setup_kins $axes
 
   if {"$emcmot" == "motmod"} {
-    loadrt $emcmot \
+    if [catch {loadrt $emcmot \
       base_period_nsec=$base_period \
       servo_period_nsec=$servo_period \
-      num_joints=$number_of_joints
+      num_joints=$number_of_joints} msg
+    ] {
+        # typ: too many joints attempted
+        puts stderr "\n"
+        puts stderr "core_sim: loadrt $emcmot FAIL"
+        puts stderr "     msg=$msg\n"
+        exit 1
+    }
   } else {
      # known special case with additional parameter:
      #       unlock_joint_mask=0xNN
